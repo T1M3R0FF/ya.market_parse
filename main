@@ -122,8 +122,8 @@ def upload():
 
 
 def main():
-    #links = get_info()
-    #pack_info(links)
+    links = get_info()
+    pack_info(links)
     upload()
 
 
