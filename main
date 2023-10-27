@@ -8,17 +8,21 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 import csv
 import json
+from random import randint
+import os
+
+
+user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+options = webdriver.ChromeOptions()
+options.add_argument(f"user-agent={user_agent}")
+options.add_argument('--headless')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+driver = webdriver.Chrome(options=options)
 
 
 def get_info():
     links = set()
-    user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
-    options = webdriver.ChromeOptions()
-    options.add_argument(f"user-agent={user_agent}")
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(options=options)
     url = "https://market.yandex.ru/business--msktv/664406"
     driver.get(url)
     print("got url")
@@ -55,7 +59,7 @@ def get_info():
 def pack_info(links):
     counter = 1
     data = [
-        ["Товар", "Цена", "Описание", "Характеристики", "Бренд", "Категория", "Изображения", "Видим"]
+        ["Артикул", "Товар", "Цена", "Описание", "Характеристики", "Бренд", "Категория", "Изображения", "Видим"]
     ]
     for link in links:
         driver.get(link)
@@ -65,7 +69,7 @@ def pack_info(links):
         if clas:
             element = clas.find('div', {'data-zone-data': True})
             data_dict = json.loads(element["data-zone-data"])
-            price = data_dict.get("priceDetails").get("price").replace(" ", "")
+            price = int(data_dict.get("priceDetails").get("price").replace(" ", "")) - randint(1, 30)
 
             description = soup1.find('div', {'aria-label': 'product-description'}).text.replace('\n', ' ')
             characteristics = soup1.find('div', {'aria-label': 'Характеристики'})
@@ -84,9 +88,10 @@ def pack_info(links):
             except Exception:
                 continue
 
-            img_tags = soup1.find_all('img', class_='_2gUfn')
-            image_links = [img['src'] for img in img_tags]
-            links_string = ', '.join(image_links)
+            img_tags = [meta['content'] for meta in soup1.find_all('meta') if 'content' in meta.attrs
+                        and 'https://avatars.mds.yandex.net' in meta['content']]
+            del img_tags[0]
+            links_string = ', '.join(img_tags[:10])
 
             result = []
             result_string = ""
@@ -96,7 +101,7 @@ def pack_info(links):
                 result.append(string)
                 result_string = ", ".join(result)
             print(f"## {counter} / {len(links)} done")
-            data.append([title, price, description, result_string, brand, category, links_string, 1])
+            data.append([title, title, price, description, result_string, brand, category, links_string, 1])
             counter += 1
         else:
             print(f"no clas module for {link}")
@@ -108,17 +113,18 @@ def pack_info(links):
 
 def upload():
     url = "https://admin:admin2@mobox-shop.ru/simpla/index.php?module=ImportAdmin"
-    driver = webdriver.Chrome()
     driver.get(url)
+    print("uploading...")
     file_input = driver.find_element(By.CSS_SELECTOR, 'input.import_file')
 
-    file_path = '/home/mio-welt/PycharmProjects/DA_BIGGAST_PAASA/yandex.csv'
+    file_path = os.path.join(os.getcwd(), 'yandex.csv')
     file_input.send_keys(file_path)
     time.sleep(2)
 
     upload_button = driver.find_element(By.CSS_SELECTOR, 'input.button_green')
     upload_button.click()
-    time.sleep(10)
+    time.sleep(120)  # enough time to upload
+    print("uploaded")
 
 
 def main():
